@@ -10,8 +10,9 @@
   "Python-like rand function."
   (cl-random 1.0))
 
-(defun flip (p)
+(defun flip (&optional p)
   "Simulates a Bernoulli outcome with parameter p."
+  (setq p (if (not p) .5 p))
   (if (> (rand) p) nil t))
 
 (defun medical-diagnosis-core (lc tb c sf o)

@@ -1,8 +1,9 @@
 ;; Author: DOHMATOB Elvis Dopgima <gmdopp@gmail.com>
 ;; From command-line run with "emacs --script hanoi.el"
 
-(defun hanoi-core (n a b c mvcnt)
+(defun hanoi-core (n a b c &optional mvcnt)
   "Simplest possible towers-of-hanoi solver. NB.:- Can be done iteratively too."
+  (setq mvcnt (if (not mvcnt) 0 mvcnt))
   (if (and (integerp n) (> n 0))
       (if (< n 2)
 	  (progn
