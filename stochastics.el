@@ -19,7 +19,7 @@
 
 
 (defun bernoulli-sample (n &optional p)
-  "Samples points from a Bernoulli distribution with parameter p."
+  "Samples n points from a Bernoulli distribution with parameter p."
   (setq samples '())
   (dotimes (i n)
     (setq samples (append samples (list (flip p)))))
