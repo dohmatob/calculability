@@ -1,3 +1,4 @@
+;; Author: DOHMATOB Elvis Dopgima <gmdopp@gmail.com>
 ;; From command-line run with "emacs --script hanoi.el"
 
 (defun hanoi-core (n a b c mvcnt)
