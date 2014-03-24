@@ -6,14 +6,25 @@
 (load "~/.emacs.d/cl-lib/cl-lib.el")
 (require 'cl-lib)
 
+
 (defun rand ()
   "Python-like rand function."
   (cl-random 1.0))
+
 
 (defun flip (&optional p)
   "Simulates a Bernoulli outcome with parameter p."
   (setq p (if (not p) .5 p))
   (if (> (rand) p) nil t))
+
+
+(defun bernoulli-sample (n &optional p)
+  "Samples points from a Bernoulli distribution with parameter p."
+  (setq samples '())
+  (dotimes (i n)
+    (setq samples (append samples (list (flip p)))))
+  samples)
+
 
 (defun medical-diagnosis-core (lc tb c sf o)
   "Generate symptoms from signs. Curtesy of the Church tutorial at "
@@ -46,6 +57,7 @@
 
     (list (list "cough" cough) (list "fevel" fever) (list "chest-pain" chest-pain) (list "shortness-of-breath" shortness-of-breath))))
 
+
 (defun medical-diagnosis-normal ()
   "Rather well."
   (message "Well patient status:")
@@ -54,6 +66,7 @@
     (message (format "Normal patient status: %s" status))
     status))
 
+
 (defun medical-diagnosis-sick ()
   "This guy is thoroughly ill."
   (progn
@@ -61,7 +74,8 @@
     (message (format "Sick patient status: %s" status))
     status))
 
+
+(message "\n")
 (medical-diagnosis-normal)
 (medical-diagnosis-sick)
-
-(byte-compile-file "hanoi.el")
+(message (format "\nbernoulli sample: %s" (bernoulli-sample 1000)))

@@ -12,3 +12,4 @@ I try to keep the dependencies minimal. Please let me know if you think a dep is
 Useful links
 ============
 - Write a Lisp interpreter in less than 90 lines of Python: http://norvig.com/lispy.html
+- Awesome Emacs Lisp animation: http://dantorop.info/project/emacs-animation/lisp4.html
