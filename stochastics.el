@@ -1,4 +1,4 @@
-;; Synopsis: Stochastic lambda-Calculus
+;; Synopsis: probabilistic lambda-calculus primitive procedures
 ;; Author: DOHMATOB Elvis Dopgima <gmdopp@gmail.com>
 
 
