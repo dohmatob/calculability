@@ -1,6 +1,6 @@
 ;; Synopsis: probabilistic lambda-calculus primitive procedures
 ;; Author: DOHMATOB Elvis Dopgima <gmdopp@gmail.com>
-
+;; From command-line, run with "emacs --script stochastics.el
 
 ;; get cl-lib library from http://elpa.gnu.org/packages/cl-lib-0.4.el
 (load "~/.emacs.d/cl-lib/cl-lib.el")
