@@ -12,9 +12,7 @@
 
 (defun flip (p)
   "Simulates a Bernoulli outcome with parameter p."
-  (if (and (<= 0 p) (<= p 1))
-      (if (> (rand) p) nil t)
-    nil))
+  (if (> (rand) p) nil t))
 
 (defun medical-diagnosis-core (lung-cancer TB cold stomach-flu other)
   "Generate symptoms from signs. Curtesy of the Church tutorial at "
