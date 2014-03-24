@@ -1,7 +1,7 @@
 ;; From command-line run with "emacs --script hanoi.el"
 
 (defun hanoi-core (n a b c mvcnt)
-  "Simplest possible towers-of-hanoi solver."
+  "Simplest possible towers-of-hanoi solver. NB.:- Can be done iteratively too."
   (if (> n 0)
       (if (< n 2)
 	  (progn
