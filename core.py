@@ -101,7 +101,7 @@ def metropolis_hastings(p, q, n_samples, x0=None, maxit=1000, lag=100):
 
     Returns
     -------
-    generator (for generating n_samples points from the distribution p, using
+    generator object: for generating n_samples points from the distribution p, using
     the "proposal" q.
 
     Notes
