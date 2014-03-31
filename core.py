@@ -7,13 +7,16 @@
 import numpy as np
 from sklearn.externals.joblib import Memory
 
-'''
-Bernoulli variable with parameter p
-'''
-flip = lambda p=.5, seed=None: np.random.rand() <= p
+
+def flip(p=.5, **kwargs):
+    '''
+    Bernoulli variable with parameter p
+    '''
+
+    np.random.rand() <= p
 
 
-def multinomial(probs):
+def multinomial(probs, **kwargs):
     '''
     Multinomial variable
 

@@ -10,7 +10,7 @@ import tempfile
 from core import flip
 
 mem = Memory(tempfile.mkdtemp(prefix="tow"), verbose=-1)
-strength = lambda person: 10 if mem.cache(flip)(seed=person) else 5
+strength = lambda person: 10 if mem.cache(flip)(person=person) else 5
 lazy = lambda _: flip(1. / 3)
 pull = lambda person: .5 * strength(person) if lazy(
   person) else strength(person)
