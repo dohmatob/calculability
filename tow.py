@@ -7,9 +7,9 @@
 import numpy as np
 from joblib import Memory
 import tempfile
+from core import flip
 
 mem = Memory(tempfile.mkdtemp(prefix="tow"), verbose=-1)
-flip = lambda p=.5, seed=None: np.random.rand() <= p
 strength = lambda person: 10 if mem.cache(flip)(seed=person) else 5
 lazy = lambda _: flip(1. / 3)
 pull = lambda person: .5 * strength(person) if lazy(
