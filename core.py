@@ -70,7 +70,7 @@ class MarkovChain(object):
 
 def metropolis_hastings(p, q, n_samples, x0=None, maxit=1000, lag=100):
     """
-    Metropolis Hastings (rejection) sampler.
+    Metropolis-Hastings (rejection) sampler.
 
     Parameters
     ----------
