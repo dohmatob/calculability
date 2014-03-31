@@ -11,6 +11,9 @@ from sklearn.externals.joblib import Memory
 def flip(p=.5, **kwargs):
     '''
     Bernoulli variable with parameter p
+
+    The kwargs act like a seed (when calls are cached).
+
     '''
 
     np.random.rand() <= p
@@ -24,6 +27,8 @@ def multinomial(probs, **kwargs):
     ----------
     probs: 1D array-like
        weight of each class
+
+    The kwargs act like a seed (when calls are cached).
 
     '''
 
