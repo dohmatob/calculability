@@ -16,7 +16,7 @@ def flip(p=.5, **kwargs):
 
     '''
 
-    np.random.rand() <= p
+    return np.random.rand() <= p
 
 
 def multinomial(probs, **kwargs):
