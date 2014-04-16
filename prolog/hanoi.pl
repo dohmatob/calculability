@@ -7,7 +7,7 @@ hanoi(A, B, C, N) :-
 hanoi_core(A, B, C, N, K1, K2) :-
     (N < 2 ->
      K2 is K1 + 1,
-     writef('[%d] Move topmost disc from tower %w to tower %w.', [K2, A, C]),
+     writef('%d: Move topmost disc from tower %w to tower %w.', [K2, A, C]),
      nl
      ;
      N1 is N - 1,
