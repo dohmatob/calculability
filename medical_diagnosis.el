@@ -1,4 +1,4 @@
-(load "stochastics.el")
+(load-file "./stochastics.el")
 
 (defun medical-diagnosis-core (lc tb c sf o)
   "Generate symptoms from signs. Curtesy of the Church tutorial at "
