@@ -248,8 +248,8 @@ class LdpcBpDecoder(object):
                     # send pkt from vn to cn
                     self.send(vn, cn, pkt)
 
-            if self.pkts_ == old_pkts:
-                break
+            # abort if we've reached steady-state
+            if self.pkts_ == old_pkts: break
             else: old_pkts = self.pkts_.copy()
 
         # print results
