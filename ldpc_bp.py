@@ -4,10 +4,10 @@
 
 """
 
-import numpy as np
-import networkx as nx
-import pylab as pl
 import itertools
+import numpy as np
+import pylab as pl
+import networkx as nx
 
 # aribirary dimensional hypercube generator
 hypercube = lambda n: itertools.product(*([[0, 1]] * n))
@@ -57,7 +57,7 @@ class LdpcBpDecoder(object):
     self.llrs_: list of `self.codelength` floats
         Initial log-likelihood ratios, given the received word.
 
-    self.L_: list of `self.codelength` floats
+    self.l_: list of `self.codelength` floats
         Final log-likelihood ratios.
 
     self.x_: array of `self.codelength` bits
@@ -91,19 +91,29 @@ class LdpcBpDecoder(object):
         self.codelength = codelength
         self.checks = checks
         self.nchecks_ = len(checks)
-        self.graph_ = nx.Graph()  # bipartite graph to hold problem
 
-        # variable nodes
+        # bipartite graph representation of the LDPC
+        self.graph_ = nx.Graph()
+
+        # add variable nodes
         self.var_nodes_ = xrange(codelength)
         self.graph_.add_nodes_from(self.var_nodes_, bipartite=0)
 
-        # "check" / factor nodes
+        # add "check" / factor nodes
         self.check_nodes_ = xrange(codelength, codelength + self.nchecks_)
         self.graph_.add_nodes_from(self.check_nodes_, bipartite=1)
 
         # connect variable and check nodes
         for cn, check in zip(self.check_nodes_, checks):
             for vn in check: self.graph_.add_edge(cn, vn)
+
+        # generate node pseudos
+        self.pseudos_ = {}
+        for node in self.graph_.nodes():
+            self.pseudos_[node] = (
+                "BIT_%i" % node if node < self.codelength else "[%s = 0]" % (
+                    " XOR ".join(["BIT_%i" % b for b in self.checks[
+                                node - self.codelength]])))
 
     def compute_llr(self, obs):
         """
@@ -117,7 +127,7 @@ class LdpcBpDecoder(object):
         elif self.channel_model == "AWGN":
             self.llrs_ = 4 * np.array(obs) * self.snr
 
-    def receive(self, node):
+    def recv(self, node):
         """
         Gather incoming messages at given node.
 
@@ -132,42 +142,52 @@ class LdpcBpDecoder(object):
 
         """
 
-        if self.verbose: print "\t%s -> %s:" % (
-            self.node2str(src), self.node2str(dst)), pkt
+        if self.verbose: print "\t\t%s -> %s:" % (
+            self.pseudos_[src], self.pseudos_[dst]), pkt
         self.pkts_[(src, dst)] = pkt
 
-    def split_pkt(self, pkt):
+    def handle_variable_node(self, vn):
         """
-        Split pkt into pair (sign(pkt), |pkt|).
-
-        See equations 2.11 and 2.15 of [1].
+        Work done at variable node, on each round.
 
         """
 
-        return int(pkt < 0), np.abs(pkt)
+        # gather incoming messages
+        inbox = self.recv(vn)
 
-    def accumulate_pkts(self, pkts):
+        # update log-likelihood ratios
+        self.l_[vn] = np.sum(inbox.values())
+        self.l_[vn] += self.llrs_[vn]
+        self.x_[vn] = self.l_[vn] <= 0.
+
+        # spread the rumours
+        for cn in self.graph_.neighbors(vn):
+            pkt = np.sum([pkt for src, pkt in inbox.iteritems(
+                        ) if src != cn])  # rumours
+            pkt += self.llrs_[vn]  # our own belief
+            pkt = int(pkt < 0), np.abs(pkt)
+
+            # send pkt from vn to cn
+            self.send(vn, cn, pkt)
+
+    def handle_check_node(self, cn):
         """
-        Compute pkt to be sent from a given check node (cn) to a given
-        neighoring variable node (vn).
-
-        See equation 2.15 of [1].
-
-        Parameters
-        ----------
-        pkts: list of pairs of the form (sign, mag)
-            pkts received on previous round, at the check node cn from
-            neighboring variable nodes other than vn
+        Work done at check node, on each round.
 
         """
 
-        signs, mags = zip(*pkts)
-        return np.min(mags) * (-1) ** (np.sum(signs) % 2)
+        # gather incoming messages
+        inbox = self.recv(cn)
 
-    def node2str(self, node):
-        return "BIT_%i" % node  if node < self.codelength else "[%s = 0]" % (
-            " XOR ".join(["BIT_%i" % b for b in self.checks[
-                        node - self.codelength]]))
+        # spread the rumours
+        for vn in self.graph_.neighbors(cn):
+            # accumulate pkts from other neighboring variable nodes
+            signs, mags = zip(*[pkt for src, pkt in inbox.iteritems(
+                        ) if src != vn])
+            pkt = np.min(mags) * (-1) ** (np.sum(signs) % 2)
+
+            # send pkt from cn to vn
+            self.send(cn, vn, pkt)
 
     def fit(self, obs, max_iter=100):
         """
@@ -189,16 +209,9 @@ class LdpcBpDecoder(object):
         # initialization
         self.x_ = np.array(obs, dtype=int)
         old_pkts = None
-        self.pkts_ = {}
+        self.pkts_ = {}  # messages sent on the graph
         self.compute_llr(obs)
-        self.L_ = np.ndarray(self.llrs_.shape)
-        for vn in self.var_nodes_:
-            for cn in self.graph_.neighbors(vn):
-                if self.graph_.degree(vn) == 1 or 1:
-                    pkt = self.split_pkt(self.llrs_[vn])
-
-                    # send pkt from vn to cn
-                    self.send(vn, cn, pkt)
+        self.l_ = np.ndarray(self.llrs_.shape)  # (dynamic) log-likelihood ratios
 
         # iterative BP (message passing) loop
         self.ok_ = False
@@ -207,46 +220,26 @@ class LdpcBpDecoder(object):
                 print "_" * 79
                 print "BP: iter %03i/%03i..." % (it + 1, max_iter)
 
-            # handle "check" nodes
-            if self.verbose: print "\tHandling check nodes..."
-            for cn in self.check_nodes_:
-                inbox = self.receive(cn)    # gather incoming messages at cn
-                for vn in self.graph_.neighbors(cn):
-                    # accumulate pkts from other neighboring variable nodes
-                    pkt = self.accumulate_pkts([pkt for (
-                                src, pkt) in inbox.iteritems() if src != vn])
+            # handle variable nodes (in parallel)
+            if self.verbose: print "\tHandling variable nodes..."
+            map(self.handle_variable_node, self.var_nodes_)
 
-                    # send pkt from cn to vn
-                    self.send(cn, vn, pkt)
+            # handle "check" nodes (in parallel)
+            if self.verbose: print "\tHandling check nodes..."
+            map(self.handle_check_node, self.check_nodes_)
 
             # test for convergence
             if self.verbose: print "\tTesting for convergence..."
-            for vn in self.var_nodes_:
-                self.L_[vn] = np.sum(self.receive(vn).values())
-                self.L_[vn] += self.llrs_[vn]
-                self.x_[vn] = self.L_[vn] <= 0.
             for check in self.checks:
                 if self.x_[check].sum() % 2:
                     if self.verbose:
-                        print "\tFailded check:  %s != 0" % " XOR ".join(
+                        print "\tA check failed:  %s != 0" % " XOR ".join(
                             map(str, self.x_[check]))
                     break
             else:
                 self.ok_ = True
+                if self.verbose: print "\tOK."
                 break
-
-            # handle variable nodes
-            if self.verbose: print "\tHandling variable nodes..."
-            for vn in self.var_nodes_:
-                inbox = self.receive(vn)  # gather incoming messages at vn
-                for cn in self.graph_.neighbors(vn):
-                    pkt = np.sum([pkt for src, pkt in inbox.iteritems(
-                                ) if src != cn])  # rumours
-                    pkt += self.llrs_[vn]  # our own belief
-                    pkt = self.split_pkt(pkt)
-
-                    # send pkt from vn to cn
-                    self.send(vn, cn, pkt)
 
             # abort if we've reached steady-state
             if self.pkts_ == old_pkts: break
@@ -284,7 +277,7 @@ def demo_1():
     p = .1
     checks = [[0, 1, 2], [0, 3, 4], [0, 5, 6]]
     obs = [1, 0, 0, 0, 0, 1, 0]
-    bp = LdpcBpDecoder(codelength, checks, p=p).fit(obs, max_iter=1000)
+    bp = LdpcBpDecoder(codelength, checks, p=p).fit(obs)
     return bp
 
 
