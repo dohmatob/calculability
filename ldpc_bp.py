@@ -34,6 +34,9 @@ class LdpcBpDecoder(object):
     snr: float, optional (default None)
         SNR for AWGN channel.
 
+    verbose: int, optional (default 1)
+        Verbosity level.
+
     Attributes
     ----------
     graphs_: nx.Graph object
@@ -67,7 +70,9 @@ class LdpcBpDecoder(object):
     """
 
     def __init__(self, codelength, checks, channel_model=None, p=None,
-                 snr=None):
+                 snr=None, verbose=1):
+
+        self.verbose = verbose
         if channel_model is None:
             if not p is None: channel_model = "BSC"
         if channel_model is None:
@@ -120,6 +125,16 @@ class LdpcBpDecoder(object):
         return dict((src, pkt) for (src, dst), pkt in self.pkts_.iteritems(
                 ) if dst == node)
 
+    def send(self, src, dst, pkt):
+        """
+        Send pkt from src to dst.
+
+        """
+
+        if self.verbose: print "\t%s -> %s:" % (
+            self.node2str(src), self.node2str(dst)), pkt
+        self.pkts_[(src, dst)] = pkt
+
     def split_pkt(self, pkt):
         """
         Split pkt into pair (sign(pkt), |pkt|).
@@ -128,7 +143,7 @@ class LdpcBpDecoder(object):
 
         """
 
-        return (pkt < 0), np.abs(pkt)
+        return int(pkt < 0), np.abs(pkt)
 
     def accumulate_pkts(self, pkts):
         """
@@ -148,6 +163,11 @@ class LdpcBpDecoder(object):
         signs, mags = zip(*pkts)
         return np.min(mags) * (-1) ** (np.sum(signs) % 2)
 
+    def node2str(self, node):
+        return "BIT_%i" % node  if node < self.codelength else "[%s = 0]" % (
+            " XOR ".join(["BIT_%i" % b for b in self.checks[
+                        node - self.codelength]]))
+
     def fit(self, obs, max_iter=100):
         """
         BP decoding of a corrupt word. See Algorithm 4 of [1].
@@ -160,7 +180,7 @@ class LdpcBpDecoder(object):
         """
 
         # sanitize observation
-        print "BP: initialization (loadin evidence...)"
+        if self.verbose: print "BP: initialization (loadin evidence...)"
         assert len(obs) == self.codelength
         if self.channel_model == "BSC":
             for ob in obs: assert ob in [0, 1]
@@ -176,13 +196,13 @@ class LdpcBpDecoder(object):
                     pkt = self.split_pkt(self.llrs_[vn])
 
                     # send pkt from vn to cn
-                    print "\t%i -> %i:" % (vn, cn), pkt
-                    self.pkts_[(vn, cn)] = pkt
+                    self.send(vn, cn, pkt)
 
         # iterative BP (message passing) loop
         for it in xrange(max_iter):
-            print "_" * 79
-            print "BP: iter %03i/%03i..." % (it + 1, max_iter)
+            if self.verbose:
+                print "_" * 79
+                print "BP: iter %03i/%03i..." % (it + 1, max_iter)
 
             # handle "check" nodes
             for cn in self.check_nodes_:
@@ -193,8 +213,7 @@ class LdpcBpDecoder(object):
                                 src, pkt) in inbox.iteritems() if src != vn])
 
                     # send pkt from cn to vn
-                    print "\t%i -> %i: %g" % (cn, vn, pkt)
-                    self.pkts_[(cn, vn)] = pkt
+                    self.send(cn, vn, pkt)
 
             # test for convergence
             for vn in self.var_nodes_:
@@ -204,7 +223,8 @@ class LdpcBpDecoder(object):
             for check in self.checks:
                 if self.x_[check].sum() % 2: break
             else:
-                print "Converged after %i iterations." % (it + 1)
+                if self.verbose:
+                    print "Converged after %i iterations." % (it + 1)
                 break
 
             # handle variable nodes
@@ -217,9 +237,11 @@ class LdpcBpDecoder(object):
                     pkt = self.split_pkt(pkt)
 
                     # send pkt from vn to cn
-                    print "\t%i -> %i:" % (vn, cn), pkt
-                    self.pkts_[(vn, cn)] = pkt
-        else: print "Did not converge in %i iterations." % max_iter
+                    self.send(vn, cn, pkt)
+
+        else:
+            if self.verbose:
+                print "Did not converge in %i iterations." % max_iter
 
         return self
 
