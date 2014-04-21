@@ -28,7 +28,7 @@ class LdpcBpDecoder(object):
         'BSC': Binary symmetric Channel. Here, p must be specified.
         'AWGN': Additive White Gaussian Noise. Here, snr must be specified.
 
-    p: float in the interval [0, 1], optional (default None)
+    p: float in the open interval (0, 1), optional (default None)
         Crossover probability of BSC channel.
 
     snr: float, optional (default None)
@@ -83,7 +83,8 @@ class LdpcBpDecoder(object):
             "Unsupported channel model: %s" % channel_model)
         if channel_model == "BSC":
             assert not p is None
-            assert 0 <= p <= 1.
+            assert 0 < p < 1., (
+                "p must be in the open interval (0, 1); got %g" % p)
         self.p = p
         self.snr = snr
         self.channel_model = channel_model
@@ -186,7 +187,8 @@ class LdpcBpDecoder(object):
             for ob in obs: assert ob in [0, 1]
 
         # initialization
-        self.x_ = np.array(obs)
+        self.x_ = np.array(obs, dtype=int)
+        old_pkts = None
         self.pkts_ = {}
         self.compute_llr(obs)
         self.L_ = np.ndarray(self.llrs_.shape)
@@ -199,12 +201,14 @@ class LdpcBpDecoder(object):
                     self.send(vn, cn, pkt)
 
         # iterative BP (message passing) loop
+        self.ok_ = False
         for it in xrange(max_iter):
             if self.verbose:
                 print "_" * 79
                 print "BP: iter %03i/%03i..." % (it + 1, max_iter)
 
             # handle "check" nodes
+            if self.verbose: print "\tHandling check nodes..."
             for cn in self.check_nodes_:
                 inbox = self.receive(cn)    # gather incoming messages at cn
                 for vn in self.graph_.neighbors(cn):
@@ -216,18 +220,23 @@ class LdpcBpDecoder(object):
                     self.send(cn, vn, pkt)
 
             # test for convergence
+            if self.verbose: print "\tTesting for convergence..."
             for vn in self.var_nodes_:
                 self.L_[vn] = np.sum(self.receive(vn).values())
                 self.L_[vn] += self.llrs_[vn]
                 self.x_[vn] = self.L_[vn] <= 0.
             for check in self.checks:
-                if self.x_[check].sum() % 2: break
+                if self.x_[check].sum() % 2:
+                    if self.verbose:
+                        print "\tFailded check:  %s != 0" % " XOR ".join(
+                            map(str, self.x_[check]))
+                    break
             else:
-                if self.verbose:
-                    print "Converged after %i iterations." % (it + 1)
+                self.ok_ = True
                 break
 
             # handle variable nodes
+            if self.verbose: print "\tHandling variable nodes..."
             for vn in self.var_nodes_:
                 inbox = self.receive(vn)  # gather incoming messages at vn
                 for cn in self.graph_.neighbors(vn):
@@ -239,9 +248,27 @@ class LdpcBpDecoder(object):
                     # send pkt from vn to cn
                     self.send(vn, cn, pkt)
 
-        else:
-            if self.verbose:
+            if self.pkts_ == old_pkts:
+                break
+            else: old_pkts = self.pkts_.copy()
+
+        # print results
+        if self.verbose:
+            print "_" * 79
+            if it < max_iter - 1:
+                status = "perfectly decoded" if self.ok_ else (
+                    "some errors could not be decoded")
+                print "Converged after %i iterations (%s)." % (it + 1, status)
+            else:
                 print "Did not converge in %i iterations." % max_iter
+            print "\tMAP codeword:", "".join(map(str, self.x_))
+            print "\tChecks:"
+            for check in self.checks:
+                res = np.sum(self.x_[check]) % 2
+                print "\t%s = %s = %i (%s)" % (
+                    " XOR ".join(["BIT_%i" % b for b in check]),
+                    " XOR ".join(map(str, self.x_[check])), res,
+                    "FAILED!" if res else "PASSED!")
 
         return self
 
@@ -257,7 +284,7 @@ def demo_1():
     p = .1
     checks = [[0, 1, 2], [0, 3, 4], [0, 5, 6]]
     obs = [1, 0, 0, 0, 0, 1, 0]
-    bp = LdpcBpDecoder(codelength, checks, p=p).fit(obs)
+    bp = LdpcBpDecoder(codelength, checks, p=p).fit(obs, max_iter=1000)
     return bp
 
 
@@ -289,7 +316,11 @@ def demo_3():
     return LdpcBpDecoder(codelength, checks, snr=snr).fit(obs)
 
 if __name__ == "__main__":
-    bp = demo_3()
     pl.close("all")
-    nx.draw_graphviz(bp.graph_)
+    for x in xrange(1, 4):
+        demo = "demo_%i" % x
+        bp = eval(demo)()
+        pl.figure()
+        pl.title("graph for %s" % demo)
+        nx.draw_graphviz(bp.graph_)
     pl.show()
