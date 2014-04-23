@@ -10,7 +10,20 @@ import pylab as pl
 from qldpc import parmat2graph
 
 # number of variable nodes in Tanner graph
-n_var_nodes = lambda supports: len(set.union(*map(set, supports)))
+_n_var_nodes = lambda supports: len(set.union(*map(set, supports)))
+
+
+def _tanner_iter_edges(supports):
+    nv = _n_var_nodes(supports)
+    for j, cn in enumerate(supports):
+        for vn in cn: yield (vn, j + nv)
+
+
+def _tanner_iter_nodes(supports):
+    nv = _n_var_nodes(supports)
+    for j, cn in enumerate(supports):
+        yield j + nv
+        for vn in cn: yield vn
 
 
 def tanner_graph(supports):
@@ -19,11 +32,8 @@ def tanner_graph(supports):
 
     """
 
-    nv = n_var_nodes(supports)
     G = nx.Graph()
-    for j, cn in enumerate(supports):
-        for vn in cn: G.add_edge(j + nv, vn)
-
+    G.add_edges_from(_tanner_iter_edges(supports))
     return G
 
 
@@ -63,7 +73,8 @@ def cartpow(G, n):
     return Gn
 
 
-def tanner_cartprod(supports1, supports2, return_full=False):
+def tanner_cartprod(supports1, supports2, return_full=False,
+                    split=False):
     """
     Cartesian product G1 x G2 of two Tanner graphs Gi = (Vi, Ci, Ei),
     i = 1, 2, where for each of the lists supportsi has been defined
@@ -99,7 +110,14 @@ def tanner_cartprod(supports1, supports2, return_full=False):
     v2 = xrange(nv2)
     c2 = xrange(nv2, nv2 + nc2)
     v = set(itertools.product(v1, v2)).union(itertools.product(c1, c2))
-    c = set(itertools.product(c1, v2)).union(itertools.product(v1, c2))
+    if split:
+        cX = list(itertools.product(c1, v2))
+        cZ = list(itertools.product(v1, c2))
+        iX = []  # X-logical operators
+        iZ = []  # Z-logical operators
+        c = set(cX).union(cZ)
+    else:
+        c = set(itertools.product(c1, v2)).union(itertools.product(v1, c2))
     vertices = set(v).union(c)
     v = list(v)
     c = list(c)
@@ -113,8 +131,15 @@ def tanner_cartprod(supports1, supports2, return_full=False):
         if (x == x_ and linked(y, y_, nv2, nc2, supports2)) or (
             y == y_ and linked(x, x_, nv1, nc1, supports1)):
             if (x, y) in c and (x_, y_) in v:
-                supports[c.index((x, y))].append(v.index((x_, y_)))
+                i = c.index((x, y))
+                if split:
+                    if (x, y) in cX:
+                        if not i in iX: iX.append(i)
+                    elif not i in iZ: iZ.append(i)
+                supports[i].append(v.index((x_, y_)))
 
+    if split:
+        return [supports[i] for i in iX], [supports[i] for i in iZ]
     return supports
 
 
@@ -163,4 +188,24 @@ if __name__ == "__main__":
     pl.figure()
     pl.title("%i-by-%i lattice torus graph" % (m, m))
     nx.draw_graphviz(torus(m), node_size=30, with_labels=False)
+
+    s1 = [[0, 1]]
+    s2 = [[0, 1], [1, 2, 3]]
+    s = tanner_cartprod(s1, s2, split=True)
+    t = tanner_cartprod(s1, s2, return_full=True)
+    pl.figure()
+    pl.suptitle("Sum decomposition of Tanner graph products")
+    for j, support in enumerate([s1, s2]):
+        ax = pl.subplot("32%i" % (j + 1))
+        ax.set_title("t%i" % (j + 1))
+        tj = tanner_graph(support)
+        nx.draw_graphviz(tj, with_labels=0)
+    ax = pl.subplot("312")
+    ax.set_title("t1 x t2 =: t =: t1' + t2'")
+    nx.draw_graphviz(t, with_labels=0)
+    for j, sj in enumerate(s):
+        ax = pl.subplot("32%i" % (4 + j + 1))
+        ax.set_title("t%i'" % (j + 1))
+        tj = tanner_graph(sj)
+        nx.draw_graphviz(tj, with_labels=0)
     pl.show()
