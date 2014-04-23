@@ -1,5 +1,6 @@
 """
 :Synopsis: Toric codes and topolical quantum computers of Kitaev et al.
+:Author: DOHMATOB Elvis Dopgima <gmdopp@gmail.com> <elvis.dohmatob.inia.fr>
 
 """
 
