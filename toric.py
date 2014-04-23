@@ -8,6 +8,23 @@ import networkx as nx
 import pylab as pl
 from qldpc import parmat2graph
 
+# number of variable nodes in Tanner graph
+n_var_nodes = lambda supports: len(set.union(*map(set, supports)))
+
+
+def tanner_graph(supports):
+    """
+    Compute full expansion of Tanner graph.
+
+    """
+
+    nv = n_var_nodes(supports)
+    G = nx.Graph()
+    for j, cn in enumerate(supports):
+        for vn in cn: G.add_edge(j + nv, vn)
+
+    return G
+
 
 def cartprod(G1, G2):
     """
@@ -34,24 +51,22 @@ def cartpow(G, n):
     """
     Cartesian power of a graph.
 
+    Returns
+    -------
+    G^n.
+
     """
 
     assert n > 0
-    return cartprod(G, cartpow(G, n - 1)) if n > 1 else G
+    Gn = G
+    for _ in  xrange(n - 1): Gn = cartprod(Gn, G)
+    return Gn
 
 
-def tanner_graph(nv, supports):
-    G = nx.Graph()
-    for j, cn in enumerate(supports):
-        for vn in cn: G.add_edge(j + nv, vn)
-
-    return G
-
-
-def tanner_cartprod(nv1, supports1, nv2, supports2, return_full=False):
+def tanner_cartprod(supports1, supports2, return_full=False):
     """
     Cartesian product G1 x G2 of two Tanner graphs Gi = (Vi, Ci, Ei),
-    i = 1, 2, where nv1 := |V1|, each of the lists supportsi has been defined
+    i = 1, 2, where for each of the lists supportsi has been defined
     as follows: for each ci \in Ci, supports1[ci] is the support of the
     ci-th row of the parity matrix of the cyclic code represented by Gi.
 
@@ -62,8 +77,9 @@ def tanner_cartprod(nv1, supports1, nv2, supports2, return_full=False):
 
     Returns
     -------
-    Pair (nv, supports) for the cyclic code represented by the Tanner
-    graph G1 x G2.
+    supports: list of lists
+        compact representation for the cyclic code represented by the Tanner
+        graph G1 x G2.
 
     Notes
     -----
@@ -71,25 +87,49 @@ def tanner_cartprod(nv1, supports1, nv2, supports2, return_full=False):
 
     """
 
+    if return_full:
+        return cartprod(tanner_graph(supports1), tanner_graph(supports2))
+
+    nv1 = len(set.union(*map(set, supports1)))
+    nv2 = len(set.union(*map(set, supports2)))
     nc1 = len(supports1)
     nc2 = len(supports2)
     v1 = xrange(nv1)
     c1 = xrange(nv1, nv1 + nc1)
     v2 = xrange(nv2)
     c2 = xrange(nv2, nv2 + nc2)
-    nodes1 = xrange(nv1 + nc1)
-    nodes2 = xrange(nv2 + nc2)
-    v = list(set(itertools.product(v1, v2)).union(itertools.product(c1, c2)))
-    c = list(set(itertools.product(c1, v2)).union(itertools.product(v1, c2)))
+    v = set(itertools.product(v1, v2)).union(itertools.product(c1, c2))
+    c = set(itertools.product(c1, v2)).union(itertools.product(v1, c2))
+    vertices = set(v).union(c)
+    v = list(v)
+    c = list(c)
     supports = map(lambda _: [], c)  # [[]] * nc leads to entangled pointers!
-    nv = len(v)
-    for x, y in itertools.product(nodes1, nodes2):
-        for x_, y_ in itertools.product(nodes1, nodes2):
-            if x == x_ or y == y_:
-                if (x, y) in c and (x_, y_) in v:
-                    supports[c.index((x, y))].append(v.index((x_, y_)))
+    linked = lambda a, b, nv, nc, s: (nv <= b < nv + nc and a in s[b - nv]
+                                      ) or (nv <= a < nv + nc and
+                                            b in s[a - nv])
+    for (x, y), (x_, y_) in itertools.product(vertices, vertices):
+        if (x == x_ and linked(y, y_, nv2, nc2, supports2)) or (
+            y == y_ and linked(x, x_, nv1, nc1, supports1)):
+            if (x, y) in c and (x_, y_) in v:
+                supports[c.index((x, y))].append(v.index((x_, y_)))
 
-    return tanner_graph(nv, supports) if return_full else (nv, supports)
+    return supports
+
+
+def tanner_cartpow(supports, n, return_full=False):
+    """
+    Cartesian power of Tanner graph G. Note that G^n is again a Tanner graph.
+
+    Returns
+    -------
+    Compact representation supports_, for G^n.
+
+    """
+
+    if return_full: return cartpow(tanner_graph(supports), n)
+    supports_ = supports
+    for _ in xrange(n - 1): supports_ = tanner_cartprod(supports_, supports)
+    return supports_
 
 
 def torus(m):
