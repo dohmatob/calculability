@@ -39,11 +39,10 @@ def cartprod(G1, G2):
     """
 
     G = nx.Graph()
-    for x, y in itertools.product(G1.nodes_iter(), G2.nodes_iter()):
-        for x_, y_ in itertools.product(G1.nodes_iter(), G2.nodes_iter()):
-            if (x == x_ and G2.has_edge(y, y_)) or (
-                y == y_ and G1.has_edge(x, x_)):
-                G.add_edge((x, y), (x_, y_))
+    for (x, y), z in itertools.product(G1.edges_iter(), G2.nodes_iter()):
+        G.add_edge((x, z), (y, z))
+    for x, (y, z) in itertools.product(G1.nodes_iter(), G2.edges_iter()):
+        G.add_edge((x, y), (x, z))
 
     return G
 
@@ -104,10 +103,12 @@ def tanner_cartprod(supports1, supports2, return_full=False):
     vertices = set(v).union(c)
     v = list(v)
     c = list(c)
-    supports = map(lambda _: [], c)  # [[]] * nc leads to entangled pointers!
+    supports = map(lambda _: [], c)  # XXX [[]] * nc is risky for the sequel!
     linked = lambda a, b, nv, nc, s: (nv <= b < nv + nc and a in s[b - nv]
                                       ) or (nv <= a < nv + nc and
                                             b in s[a - nv])
+
+    # XXX following loop is sub-optimal!
     for (x, y), (x_, y_) in itertools.product(vertices, vertices):
         if (x == x_ and linked(y, y_, nv2, nc2, supports2)) or (
             y == y_ and linked(x, x_, nv1, nc1, supports1)):
