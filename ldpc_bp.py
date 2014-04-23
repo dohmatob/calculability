@@ -78,7 +78,7 @@ class LdpcBpDecoder(object):
         if channel_model is None:
             if not snr is None: channel_model = "AWGN"
 
-        channel_model = channel_model.upper()
+        if channel_model: channel_model = channel_model.upper()
         assert channel_model in ["BSC", "AWGN"], (
             "Unsupported channel model: %s" % channel_model)
         if channel_model == "BSC":
@@ -165,7 +165,7 @@ class LdpcBpDecoder(object):
             pkt = np.sum([pkt for src, pkt in inbox.iteritems(
                         ) if src != cn])  # rumours
             pkt += self.llrs_[vn]  # our own belief
-            pkt = int(pkt < 0), np.abs(pkt)
+            pkt = int(pkt <= 0), np.abs(pkt)
 
             # send pkt from vn to cn
             self.send(vn, cn, pkt)
@@ -189,6 +189,12 @@ class LdpcBpDecoder(object):
             # send pkt from cn to vn
             self.send(cn, vn, pkt)
 
+    def is_codeword(self, x):
+        bits = np.array(x, dtype=int) % 2
+        for check in self.checks:
+            if bits[check].sum() % 2: return false
+        else: return True
+
     def fit(self, obs, max_iter=100):
         """
         BP decoding of a corrupt word. See Algorithm 4 of [1].
@@ -211,7 +217,7 @@ class LdpcBpDecoder(object):
         old_pkts = None
         self.pkts_ = {}  # messages sent on the graph
         self.compute_llr(obs)
-        self.l_ = np.ndarray(self.llrs_.shape)  # (dynamic) log-likelihood ratios
+        self.l_ = np.ndarray(self.llrs_.shape)  # dynamic log-likelihood ratios
 
         # iterative BP (message passing) loop
         self.ok_ = False
@@ -265,6 +271,13 @@ class LdpcBpDecoder(object):
 
         return self
 
+    def apply_bsc(self, codeword):
+        assert len(codeword) == self.codelength
+        assert self.channel_model == "BSC"
+        assert self.is_codeword(codeword)
+        return (np.array(codeword, dtype=int) + (np.random.rand(
+                    self.codelength) < self.p)) % 2
+
 
 def demo_1():
     """
@@ -274,7 +287,7 @@ def demo_1():
     """
 
     codelength = 7
-    p = .1
+    p = .49
     checks = [[0, 1, 2], [0, 3, 4], [0, 5, 6]]
     obs = [1, 0, 0, 0, 0, 1, 0]
     bp = LdpcBpDecoder(codelength, checks, p=p).fit(obs)
@@ -308,9 +321,17 @@ def demo_3():
     obs = [-.1, .5, -.8, 1., -.7, .5]
     return LdpcBpDecoder(codelength, checks, snr=snr).fit(obs)
 
+
+def demo_4():
+    codelength = 6
+    checks = [[0, 1, 2, 3], [2, 3, 5], [0, 3, 4]]
+    p = .1
+    obs = [1, 1, 1, 0, 0, 0]
+    return LdpcBpDecoder(codelength, checks, p=p).fit(obs)
+
 if __name__ == "__main__":
     pl.close("all")
-    for x in xrange(1, 4):
+    for x in xrange(1, 5):
         demo = "demo_%i" % x
         bp = eval(demo)()
         pl.figure()
