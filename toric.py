@@ -21,9 +21,7 @@ def _tanner_iter_edges(supports):
 
 def _tanner_iter_nodes(supports):
     nv = _n_var_nodes(supports)
-    for j, cn in enumerate(supports):
-        yield j + nv
-        for vn in cn: yield vn
+    for x in xrange(nv + len(supports)): yield x
 
 
 def tanner_graph(supports):
@@ -98,48 +96,39 @@ def tanner_cartprod(supports1, supports2, return_full=False,
 
     """
 
-    if return_full:
-        return cartprod(tanner_graph(supports1), tanner_graph(supports2))
+    if return_full: return cartprod(tanner_graph(supports1),
+                                    tanner_graph(supports2))
 
-    nv1 = len(set.union(*map(set, supports1)))
-    nv2 = len(set.union(*map(set, supports2)))
-    nc1 = len(supports1)
-    nc2 = len(supports2)
-    v1 = xrange(nv1)
-    c1 = xrange(nv1, nv1 + nc1)
-    v2 = xrange(nv2)
-    c2 = xrange(nv2, nv2 + nc2)
+    nv1, nv2 = _n_var_nodes(supports1), _n_var_nodes(supports2)
+    nc1, nc2 = len(supports1), len(supports2)
+    v1, c1 = xrange(nv1), xrange(nv1, nv1 + nc1)
+    v2, c2 = xrange(nv2), xrange(nv2, nv2 + nc2)
     v = set(itertools.product(v1, v2)).union(itertools.product(c1, c2))
     if split:
         cX = list(itertools.product(c1, v2))
         cZ = list(itertools.product(v1, c2))
-        iX = []  # X-logical operators
-        iZ = []  # Z-logical operators
+        iX, iZ = [], []
         c = set(cX).union(cZ)
-    else:
-        c = set(itertools.product(c1, v2)).union(itertools.product(v1, c2))
+    else: c = set(itertools.product(c1, v2)).union(itertools.product(v1, c2))
     vertices = set(v).union(c)
-    v = list(v)
-    c = list(c)
+    v, c = list(v), list(c)
     supports = map(lambda _: [], c)  # XXX [[]] * nc is risky for the sequel!
     linked = lambda a, b, nv, nc, s: (nv <= b < nv + nc and a in s[b - nv]
                                       ) or (nv <= a < nv + nc and
                                             b in s[a - nv])
 
-    # XXX following loop is sub-optimal!
+    # XXX the following loop is sub-optimal!
     for (x, y), (x_, y_) in itertools.product(vertices, vertices):
         if (x == x_ and linked(y, y_, nv2, nc2, supports2)) or (
             y == y_ and linked(x, x_, nv1, nc1, supports1)):
             if (x, y) in c and (x_, y_) in v:
                 i = c.index((x, y))
                 if split:
-                    if (x, y) in cX:
-                        if not i in iX: iX.append(i)
+                    if (x, y) in cX and not i in iX: iX.append(i)
                     elif not i in iZ: iZ.append(i)
                 supports[i].append(v.index((x_, y_)))
 
-    if split:
-        return [supports[i] for i in iX], [supports[i] for i in iZ]
+    if split: return [supports[i] for i in iX], [supports[i] for i in iZ]
     return supports
 
 
@@ -186,26 +175,25 @@ if __name__ == "__main__":
     pl.close("all")
     m = int(sys.argv[1]) if len(sys.argv) > 1 else 10
     pl.figure()
-    pl.title("%i-by-%i lattice torus graph" % (m, m))
+    pl.title("%i-by-%i regular paving of the torus" % (m, m))
     nx.draw_graphviz(torus(m), node_size=30, with_labels=False)
 
-    s1 = [[0, 1]]
-    s2 = [[0, 1], [1, 2, 3]]
+    s1 = s2 = [[0, 2], [0, 1], [1, 2]]
     s = tanner_cartprod(s1, s2, split=True)
     t = tanner_cartprod(s1, s2, return_full=True)
     pl.figure()
     pl.suptitle("Sum decomposition of Tanner graph products")
     for j, support in enumerate([s1, s2]):
         ax = pl.subplot("32%i" % (j + 1))
-        ax.set_title("t%i" % (j + 1))
+        ax.set_title("t%i = tanner(%s)" % (j + 1, support))
         tj = tanner_graph(support)
-        nx.draw_graphviz(tj, with_labels=0)
+        nx.draw_graphviz(tj, with_labels=0, node_size=30)
     ax = pl.subplot("312")
     ax.set_title("t1 x t2 =: t =: t1' + t2'")
-    nx.draw_graphviz(t, with_labels=0)
+    nx.draw_graphviz(t, with_labels=0, node_size=30)
     for j, sj in enumerate(s):
         ax = pl.subplot("32%i" % (4 + j + 1))
         ax.set_title("t%i'" % (j + 1))
         tj = tanner_graph(sj)
-        nx.draw_graphviz(tj, with_labels=0)
+        nx.draw_graphviz(tj, with_labels=0, node_size=30)
     pl.show()
