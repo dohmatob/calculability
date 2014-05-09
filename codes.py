@@ -1,5 +1,8 @@
 import itertools
+import numpy as np
 import networkx as nx
+import pylab as pl
+from qldpc import rotate_list, parmat2graph
 
 # number of variable nodes in Tanner graph
 _tanner_nvar_nodes = lambda checks: len(set.union(*map(set, checks)))
@@ -100,18 +103,69 @@ def tanner_cartesian_power(checks, n, split=False):
         checks_ = tanner_cartesian_product(checks_, checks)
     return tanner_cartesian_product(checks_, checks, split=split)
 
-if __name__ == "__main__":
-    import pylab as pl
-    pl.close("all")
 
-    m = 15
+def css_code(GX, GZ):
+    """
+    CSS code construction.
+
+    """
+
+    # XXX use scipy.linalg sparse constructs (csr_matrix, etc.) !!!
+    return np.vstack((np.hstack((GX, np.zeros((GX.shape[0], GZ.shape[1])))),
+                      np.hstack((np.zeros((GZ.shape[0], GX.shape[1])), GZ))))
+
+
+def kovalev_code(H1, H2):
+    """
+    Kovalev et al's kron product construction.
+
+    """
+
+    r1, n1 = H1.shape
+    r2, n2 = H2.shape
+    E1 = np.eye(r1)
+    E1_ = np.eye(n1)
+    E2 = np.eye(r2)
+    E2_ = np.eye(n2)
+
+    # note that all(GZ[::-1, ::-1] == GX)
+    GX = np.hstack((np.kron(E2, H1), np.kron(H2, E1)))
+    GZ = np.hstack((np.kron(H2.T, E1_), np.kron(E2_, H1.T)))
+
+    return css_code(GX, GZ)
+
+
+def repetition_code_circulant_matrix(d):
+    """
+    Returns circulant matrix of repetition code (Hc), where:
+
+        g = 1 + x + x^2 + ... + x^(n - 1)
+        h = (x^n - 1) / g = 1 + x (mod 2)
+        Hc = [h, hx, hx^2, ..., hx^(n - 1)]^T
+
+    """
+
+    assert d >= 2
+    h = np.append([1, 1], np.zeros(d - 2))
+    return np.vstack([rotate_list(h, r=r) for r in xrange(d)])
+
+
+def kovalev_toric_code_construction(d):
+    G = repetition_code_circulant_matrix(d)
+    return kovalev_code(G, G)
+
+if __name__ == "__main__":
+    pl.close("all")
+    d = 3
+
+    # gridded torus
     pl.figure()
-    pl.title("Kitaev Toric code [%i, 4, %i]: %i-by-%i regular paving of "
-             "the torus" % (2 * m ** 2, m, m, m))
-    nx.draw_graphviz(tanner_graph(tanner_cartesian_power(tanner_cycle(m), 2)),
+    pl.title("%i-by-%i regular paving of the torus" % (d, d))
+    nx.draw_graphviz(tanner_graph(tanner_cartesian_power(tanner_cycle(d), 2)),
                      node_size=30, with_labels=False)
 
-    s1 = s2 = tanner_cycle(5)
+    # Tillich-Zemor hypergraph-product constructions
+    s1 = s2 = tanner_cycle(d)
     s = tanner_cartesian_product(s1, s2, split=True)
     t = nx.cartesian_product(tanner_graph(s1), tanner_graph(s2))
     pl.figure()
@@ -129,4 +183,17 @@ if __name__ == "__main__":
         ax.set_title("t%i'" % (j + 1))
         tj = tanner_graph(sj)
         nx.draw_graphviz(tj, with_labels=0, node_size=30)
+
+    # Kovalev et al's kron constructions
+    toric = kovalev_toric_code_construction(d)
+    pl.figure()
+    title = ("Toric [%i, 2, %i]-code H using Kovalev et al's kron "
+             "product trick") % (2 * d ** 2, d)
+    pl.title(title)
+    nx.draw_graphviz(parmat2graph(toric)[0], with_labels=False, node_size=30)
+    pl.matshow(toric)
+    pl.title(title)
+    pl.gray()
+    pl.axis('off')
+
     pl.show()

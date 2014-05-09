@@ -10,19 +10,33 @@ import numpy as np
 import pylab as pl
 import networkx as nx
 
-rotate_list = lambda l, r=1: l[-r:] + l[:-r]
+
+def rotate_list (l, r=1):
+    l = list(l)
+    return l[-r:] + l[:-r]
 
 
 def kl_div(p, q):
+    """
+    Kullback-Leibler divergence of q from p.
+
+    """
+
     msk = (p > 0) * (q > 0)
     p = p[msk]
     q = q[msk]
     p = p / (1. * p.sum())
     q = q / (1. * q.sum())
+
     return np.sum(p * np.log(p / q))
 
 
 def best_row_to_rm(h):
+    """
+    Remove row which does least damage to uniformity of column weights.
+
+    """
+
     best = 1
     best_core = np.inf
     uniform = np.ones(h.shape[1])
@@ -54,7 +68,7 @@ def bicycle(m, n, k):
     c = circulant(a, b)
     h0 = np.hstack((c, c.T))
 
-    # rm n / 2 - m rows, making sure column density remains uniform
+    # remove n / 2 - m rows, making sure column density remains uniform
     if a > m:
         for _ in xrange(a - m):
             h0 = np.delete(h0, best_row_to_rm(h0), axis=0)
@@ -76,13 +90,15 @@ def parmat2graph(h):
 
     return graph, xrange(nvars), xrange(nvars, nvars + nchecks)
 
+
+def mackay_monte_carlo_example():
+    return 80, 24, 10
+
+
 if __name__ == '__main__':
-    n = 256
-    m = 50
-    k = 10
+    n, m, k = mackay_monte_carlo_example()
     h = bicycle(m, n, k)
     graph = parmat2graph(h)[0]
-    cycle_basis = nx.cycle_basis(graph)
 
     pl.close("all")
     pl.figure()
@@ -94,5 +110,7 @@ if __name__ == '__main__':
     pl.title("H")
     pl.axis('off')
     pl.figure()
-    pl.hist(map(len, cycle_basis), bins=16)
+    pl.title("Distribution of weights of columns of H")
+    pl.hist(h.sum(axis=0), bins=32)
+
     pl.show()
