@@ -128,11 +128,8 @@ def kovalev_code(H1, H2):
     E2 = np.eye(r2)
     E2_ = np.eye(n2)
 
-    # note that all(GZ[::-1, ::-1] == GX)
-    GX = np.hstack((np.kron(E2, H1), np.kron(H2, E1)))
-    GZ = np.hstack((np.kron(H2.T, E1_), np.kron(E2_, H1.T)))
-
-    return css_code(GX, GZ)
+    return css_code(np.hstack((np.kron(E2, H1), np.kron(H2, E1))),
+                    np.hstack((np.kron(H2.T, E1_), np.kron(E2_, H1.T))))
 
 
 def repetition_code_circulant_matrix(d):
