@@ -1,6 +1,6 @@
 """
-:Synopsis: Quantum LDPCs
-:Author: DOHMATOB
+:Synopsis: Mackay's Quantum LDPC Codes (including bicycle codes)
+:Author: DOHMATOB Elvis Dopgima <gmdopp@gmail.com> <elvis.dohmatob.inia.fr>
 
 """
 

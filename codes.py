@@ -1,8 +1,13 @@
+"""
+:Author: DOHMATOB Elvis Dopgima <gmdopp@gmail.com> <elvis.dohmatob.inia.fr>
+
+"""
+
 import itertools
 import numpy as np
 import networkx as nx
 import pylab as pl
-from qldpc import rotate_list, parmat2graph
+from mackay_qldpc import rotate_list, parmat2graph
 
 # number of variable nodes in Tanner graph
 _tanner_nvar_nodes = lambda checks: len(set.union(*map(set, checks)))
