@@ -9,11 +9,7 @@ from random import shuffle
 import numpy as np
 import pylab as pl
 import networkx as nx
-
-
-def rotate_list (l, r=1):
-    l = list(l)
-    return l[-r:] + l[:-r]
+from codes import parmat2graph, rotate_list
 
 
 def kl_div(p, q):
@@ -77,18 +73,6 @@ def bicycle(m, n, k):
     h0 = h0[:, (h0.sum(axis=0) > 0)]
 
     return h0
-
-
-def parmat2graph(h):
-    nchecks, nvars = h.shape
-    checks =[r.nonzero()[0] for r in h]
-    graph = nx.Graph()
-    graph.add_nodes_from(xrange(nvars), bipartite=0)
-    graph.add_nodes_from(xrange(nvars, nvars + nchecks), bipartite=1)
-    for cn, check in enumerate(checks):
-        for vn in check: graph.add_edge(cn + nvars, vn)
-
-    return graph, xrange(nvars), xrange(nvars, nvars + nchecks)
 
 
 def mackay_monte_carlo_example():

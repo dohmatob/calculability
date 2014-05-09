@@ -7,10 +7,31 @@ import itertools
 import numpy as np
 import networkx as nx
 import pylab as pl
-from mackay_qldpc import rotate_list, parmat2graph
 
 # number of variable nodes in Tanner graph
 _tanner_nvar_nodes = lambda checks: len(set.union(*map(set, checks)))
+
+
+def rotate_list (l, r=1):
+    """
+    Rotates list (l) r places to the right.
+
+    """
+
+    l = list(l)
+    return l[-r:] + l[:-r]
+
+
+def parmat2graph(h):
+    nchecks, nvars = h.shape
+    checks =[r.nonzero()[0] for r in h]
+    graph = nx.Graph()
+    graph.add_nodes_from(xrange(nvars), bipartite=0)
+    graph.add_nodes_from(xrange(nvars, nvars + nchecks), bipartite=1)
+    for cn, check in enumerate(checks):
+        for vn in check: graph.add_edge(cn + nvars, vn)
+
+    return graph, xrange(nvars), xrange(nvars, nvars + nchecks)
 
 
 def _tanner_iter_nodes(checks):
