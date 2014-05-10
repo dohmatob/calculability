@@ -179,7 +179,7 @@ def kovalev_toric_code_construction(d):
 
 if __name__ == "__main__":
     pl.close("all")
-    d = 3
+    d = 7
 
     # gridded torus
     pl.figure()
@@ -208,10 +208,10 @@ if __name__ == "__main__":
         nx.draw_graphviz(tj, with_labels=0, node_size=30)
 
     # Kovalev et al's kron constructions
-    toric = kovalev_toric_code_construction(d)
-    pl.figure()
     title = ("Toric [%i, 2, %i]-code H using Kovalev et al's kron "
              "product trick") % (2 * d ** 2, d)
+    toric = kovalev_toric_code_construction(d)
+    pl.figure()
     pl.title(title)
     nx.draw_graphviz(parmat2graph(toric)[0], with_labels=False, node_size=30)
     pl.matshow(toric)
